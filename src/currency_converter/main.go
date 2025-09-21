@@ -38,6 +38,8 @@ func getConversion(baseCurrency string, targetCurrency string, input float64) (f
 	if err != nil {
 		log.Fatalf("Error getting response: %s", err)
 	}
+	defer response.Body.Close()
+
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Fatalf("Error reading response: %s", err)
@@ -54,14 +56,14 @@ func validateIn(args []string) error {
 	if len(args) == 4 {
 		return nil
 	}
-	if len(args) == 1{
+	if len(args) == 1 {
 		fmt.Println("Please enter amount, original currency and target currency")
 		os.Exit(1)
 	}
 	return errors.New("Invalid number of Arguments, please enter exactly three arguments.\nExpected arguments: <amount> <original currency> <target currency>")
 }
 
-func validateAmt(amt string) (float64, error){
+func validateAmt(amt string) (float64, error) {
 	input, err := strconv.ParseFloat(amt, 64)
 	if err != nil {
 		return 0, errors.New("Invalid amount, please enter a valid numeric value")
@@ -69,7 +71,7 @@ func validateAmt(amt string) (float64, error){
 	return input, nil
 }
 
-func validateCur(from string, to string) (string, string, error){
+func validateCur(from string, to string) (string, string, error) {
 	reg := regexp.MustCompile("^[a-zA-z]{3}$")
 	if reg.Match([]byte(from)) || reg.Match([]byte(to)) {
 		return strings.ToUpper(from), strings.ToUpper(to), nil
@@ -78,12 +80,10 @@ func validateCur(from string, to string) (string, string, error){
 }
 
 func main() {
-
 	err := validateIn(os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	baseCurrency, targetCurrency, err := validateCur(os.Args[2], os.Args[3])
 	if err != nil {
 		log.Fatal(err)
@@ -92,7 +92,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	rate, out := getConversion(baseCurrency,targetCurrency,amount)
-	
+	rate, out := getConversion(baseCurrency, targetCurrency, amount)
+
 	fmt.Printf("Converted value %f %s\nConversion rate: %f\n", out, targetCurrency, rate)
 }
