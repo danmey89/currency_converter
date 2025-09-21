@@ -2,12 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -27,6 +30,7 @@ func getKey() string {
 
 func getConversion(baseCurrency string, targetCurrency string, input float64) (float64, float64) {
 
+	var exchangeRate ExRate
 	key := getKey()
 	url := fmt.Sprintf("https://v6.exchangerate-api.com/v6/%s/latest/%s", key, baseCurrency)
 
@@ -38,28 +42,57 @@ func getConversion(baseCurrency string, targetCurrency string, input float64) (f
 	if err != nil {
 		log.Fatalf("Error reading response: %s", err)
 	}
-	var exchangeRate ExRate
-
 	err = json.Unmarshal(body, &exchangeRate)
 	if err != nil {
 		log.Fatalf("Error unmarshalling: %s", err)
 	}
-	rate := exchangeRate.Rates[targetCurrency]
-	
-	output := input * rate
-	return rate, output
+	output := input * exchangeRate.Rates[targetCurrency]
+	return exchangeRate.Rates[targetCurrency], output
+}
+
+func validateIn(args []string) error {
+	if len(args) == 4 {
+		return nil
+	}
+	if len(args) == 1{
+		fmt.Println("Please enter amount, original currency and target currency")
+		os.Exit(1)
+	}
+	return errors.New("Invalid number of Arguments, please enter exactly three arguments.\nExpected arguments: <amount> <original currency> <target currency>")
+}
+
+func validateAmt(amt string) (float64, error){
+	input, err := strconv.ParseFloat(amt, 64)
+	if err != nil {
+		return 0, errors.New("Invalid amount, please enter a valid numeric value")
+	}
+	return input, nil
+}
+
+func validateCur(from string, to string) (string, string, error){
+	reg := regexp.MustCompile("^[a-zA-z]{3}$")
+	if reg.Match([]byte(from)) || reg.Match([]byte(to)) {
+		return strings.ToUpper(from), strings.ToUpper(to), nil
+	}
+	return "", "", errors.New("Invalid currency format: please enter valid three letter currency code")
 }
 
 func main() {
-	
-	baseCurrency := "EUR"
-	targetCurrency := "CAD"
-	input, err := strconv.ParseFloat(os.Args[1], 64)
+
+	err := validateIn(os.Args)
 	if err != nil {
-		log.Fatalf("Input error: amount value not numeric")
+		log.Fatal(err)
 	}
-	
-	rate, out := getConversion(baseCurrency,targetCurrency,input)
+
+	baseCurrency, targetCurrency, err := validateCur(os.Args[2], os.Args[3])
+	if err != nil {
+		log.Fatal(err)
+	}
+	amount, err := validateAmt(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	rate, out := getConversion(baseCurrency,targetCurrency,amount)
 	
 	fmt.Printf("Converted value %f %s\nConversion rate: %f\n", out, targetCurrency, rate)
 }
